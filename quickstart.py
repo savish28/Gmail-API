@@ -56,7 +56,7 @@ def main():
         #ind = ind + 1
         print('INDEX %i -' %(ind))
         GetMessage(service, 'me', msg[u'id'])
-        if ind == 50:
+        if ind == 0:
             break
 
 
@@ -133,7 +133,21 @@ def ListMessagesWithLabels(service, user_id, label_ids=[]):
     print ('An error occurred:')
 
 
-
+def GetMessageBody(service, user_id, msg_id):
+    try:
+            message = service.users().messages().get(userId=user_id, id=msg_id, format='raw').execute()
+            msg_str = base64.urlsafe_b64decode(message['raw'].encode('ASCII'))
+            mime_msg = email.message_from_string(msg_str)
+            messageMainType = mime_msg.get_content_maintype()
+            if messageMainType == 'multipart':
+                    for part in mime_msg.get_payload():
+                            if part.get_content_maintype() == 'text':
+                                    return part.get_payload()
+                    return ""
+            elif messageMainType == 'text':
+                    return mime_msg.get_payload()
+    except errors.HttpError, error:
+            print ('An error occurred:' + error)
 
 def GetMessage(service, user_id, msg_id):
   """Get a Message with given ID.
@@ -150,14 +164,30 @@ def GetMessage(service, user_id, msg_id):
   try:
     message = service.users().messages().get(userId=user_id, id=msg_id ).execute()
 
-    msg_sb = message['payload']['parts'][0]['body']['data']
-    #print(message)
-    msg_str = base64.urlsafe_b64decode(msg_sb.encode('ASCII'))
-    print("yo")
-    print(msg_str)
+    #msg_sb = message['payload']['parts'][0]['parts'][0]['body']['data']
+    print(message)
+    return message
+    #msg_str = base64.urlsafe_b64decode(msg_sb.encode('ASCII'))
+    #print("yo")
+    #print(msg_str)
+    msg_str = GetMessageBody(service,user_id,msg_id)
+    
+    headers=message["payload"]["headers"]
+    subject = [i['value'] for i in headers if i["name"]=="Subject"]
+    from_mail = [i['value'] for i in headers if i["name"]=="From"]
+    to_mail = [i['value'] for i in headers if i["name"]=="To"]
+    cc_mail = [i['value'] for i in headers if i["name"]=="Cc"]
+    date_mail = [i['value'] for i in headers if i["name"]=="Date"]
+    print('DATE - ' + str(date_mail))
+    print ('FROM  - ' + str(from_mail))
+    print ('TO  - ' + str(to_mail))
+    print ('Cc  - ' + str(cc_mail))
+    print ('Subject  - ' + str(subject[0]))
+    print('Message - ' + msg_str)
     return message
   except errors.HttpError, error:
     print ('An error occurred:')
+
 
 
 def GetMimeMessage(service, user_id, msg_id):
