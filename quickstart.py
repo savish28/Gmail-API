@@ -40,12 +40,12 @@ def main():
     results = service.users().labels().list(userId='me').execute()
     labels = results.get('labels', [])
 
-    if not labels:
-        print('No labels found.')
-    else:
-        print('Labels:')
-        for label in labels:
-            print(label['name'])
+    #if not labels:
+    #    print('No labels found.')
+    #else:
+    #    print('Labels:')
+    #    for label in labels:
+    #        print(label['name'])
 
     # savish
     print('Savish')
@@ -56,7 +56,8 @@ def main():
         #ind = ind + 1
         print('INDEX %i -' %(ind))
         GetMessage(service, 'me', msg[u'id'])
-        if ind == 0:
+        if ind == 20:
+            #GetMessage(service, 'me', msg[u'id'])
             break
 
 
@@ -133,6 +134,7 @@ def ListMessagesWithLabels(service, user_id, label_ids=[]):
     print ('An error occurred:')
 
 
+
 def GetMessageBody(service, user_id, msg_id):
     try:
             message = service.users().messages().get(userId=user_id, id=msg_id, format='raw').execute()
@@ -165,12 +167,28 @@ def GetMessage(service, user_id, msg_id):
     message = service.users().messages().get(userId=user_id, id=msg_id ).execute()
 
     #msg_sb = message['payload']['parts'][0]['parts'][0]['body']['data']
-    print(message)
-    return message
+    #print(message)
+    #return message
     #msg_str = base64.urlsafe_b64decode(msg_sb.encode('ASCII'))
     #print("yo")
     #print(msg_str)
-    msg_str = GetMessageBody(service,user_id,msg_id)
+    attachments_email = []
+    text_plain_msg = ''
+    text_html_msg = ''
+    msg_body = message["payload"]["parts"]
+    for msg_part in msg_body:
+      if msg_part['mimeType'] == 'multipart/alternative':
+        for msg_subpart in msg_part['parts']:
+          if msg_subpart['mimeType'] == 'text/plain':
+            text_plain_msg = base64.urlsafe_b64decode(msg_subpart['body']['data'].encode('ASCII'))
+          elif msg_subpart['mimeType'] == 'text/html':
+            text_html_msg = base64.urlsafe_b64decode(msg_subpart['body']['data'].encode('ASCII'))
+      elif msg_part['mimeType'] == 'text/plain':
+        text_plain_msg = base64.urlsafe_b64decode(msg_part['body']['data'].encode('ASCII'))
+      elif msg_part['mimeType'] == 'text/html':
+        text_html_msg = base64.urlsafe_b64decode(msg_part['body']['data'].encode('ASCII'))
+      else:
+        attachments_email.append(msg_part)
     
     headers=message["payload"]["headers"]
     subject = [i['value'] for i in headers if i["name"]=="Subject"]
@@ -179,11 +197,13 @@ def GetMessage(service, user_id, msg_id):
     cc_mail = [i['value'] for i in headers if i["name"]=="Cc"]
     date_mail = [i['value'] for i in headers if i["name"]=="Date"]
     print('DATE - ' + str(date_mail))
-    print ('FROM  - ' + str(from_mail))
-    print ('TO  - ' + str(to_mail))
-    print ('Cc  - ' + str(cc_mail))
-    print ('Subject  - ' + str(subject[0]))
-    print('Message - ' + msg_str)
+    print('FROM  - ' + str(from_mail))
+    print('TO  - ' + str(to_mail))
+    print('Cc  - ' + str(cc_mail))
+    print('Subject  - ' + str(subject[0]))
+    print('Message - ' + text_plain_msg)
+    print('Html Message - ' + text_html_msg)
+    print('Attachments List - ' + str(attachments_email))
     return message
   except errors.HttpError, error:
     print ('An error occurred:')
@@ -206,10 +226,10 @@ def GetMimeMessage(service, user_id, msg_id):
     message = service.users().messages().get(userId=user_id, id=msg_id,
                                              format='raw').execute()
 
-    print ('Message snippet: %s' % (message['snippet']))
+    #print ('Message snippet: %s' % (message['snippet']))
 
     msg_str = base64.urlsafe_b64decode(message['raw'].encode('ASCII'))
-
+    print(msg_str)
     mime_msg = email.message_from_string(msg_str)
 
     return mime_msg
